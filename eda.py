@@ -61,12 +61,12 @@ print("Class distribution:")
 # order by count descending
 classes = dict(sorted(classes.items(), key=lambda item: item[1], reverse=True))
 for class_name, count in classes.items():
-    print(f"  {class_name}: {count} ({count / sum(classes.values()):.1%})")
+    print(f"  {class_name}: {count:,} ({count / sum(classes.values()):.1%})")
 
 print("")
 print("Source distribution:")
 for source, count in sources.items():
-    print(f"  {source}: {count} ({count / sum(sources.values()):.1%})")
+    print(f"  {source}: {count:,} ({count / sum(sources.values()):.1%})")
 
 
 # fun pie chart time with legend instead of labels
@@ -94,7 +94,7 @@ for autotext in autotexts:
 
 # Create legend with counts and percentages
 legend_labels = [
-    f"{label}: {count} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
 ]
 
 ax1.legend(
@@ -140,7 +140,7 @@ for autotext in autotexts:
     autotext.set_weight("bold")
 # Create legend with counts and percentages
 legend_labels = [
-    f"{label}: {count} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
 ]
 ax1.legend(
     wedges,
@@ -158,3 +158,57 @@ plt.savefig(
     dpi=300,
     bbox_inches="tight",
 )
+
+
+############ super classes pie chart
+super_classes = {
+    "Caries": ["Caries", "DeepCaries"],
+    "DeepCaries": ["DeepCaries", "Curettage"],
+    "Impacted": ["Impacted"],
+    "Lesion": ["PeriapicalLesion", "Lesion"],
+    "RootCanal": ["RootCanal"],
+    "Healthy": ["Intact"],
+}
+
+super_class_counts = {}
+for super_class, sub_classes in super_classes.items():
+    count = sum(classes.get(sub_class, 0) for sub_class in sub_classes)
+    super_class_counts[super_class] = count
+labels = list(super_class_counts.keys())
+sizes = list(super_class_counts.values())
+total = sum(sizes)
+fig1, ax1 = plt.subplots(figsize=(10, 7))
+wedges, texts, autotexts = ax1.pie(
+    sizes,
+    labels=labels,  # Use class labels
+    autopct="%1.1f%%",
+    startangle=180,  # Rotate pie so small slices are less likely to be at
+    pctdistance=0.85,
+    labeldistance=1.1,  # Push labels outward to avoid overlap
+)
+# Make percentage text smaller and bold
+for autotext in autotexts:
+    autotext.set_color("white")
+    autotext.set_fontsize(10)
+    autotext.set_weight("bold")
+# Create legend with counts and percentages (use commas in numbers)
+legend_labels = [
+    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+]
+ax1.legend(
+    wedges,
+    legend_labels,
+    title="Super Classes",
+    loc="center left",
+    bbox_to_anchor=(1, 0, 0.5, 1),
+    fontsize=10,
+)
+ax1.axis("equal")
+plt.title("Super Class Distribution", fontsize=14, pad=20)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(figure_dir, "super_class_distribution.png"),
+    dpi=300,
+    bbox_inches="tight",
+)
+############ end super classes pie chart
