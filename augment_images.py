@@ -95,9 +95,16 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
     # Process each image
     successful = 0
     failed = 0
+    skipped = 0
 
     for img_file in tqdm(image_files, desc="Processing images"):
         try:
+            # Check if output file already exists
+            output_path = Path(output_dir) / img_file.name
+            if output_path.exists():
+                skipped += 1
+                continue
+
             # Open image
             img = Image.open(img_file)
 
@@ -111,7 +118,6 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
             )
 
             # Save to output directory with same filename
-            output_path = Path(output_dir) / img_file.name
             processed_img.save(output_path, "PNG")
 
             successful += 1
@@ -125,6 +131,7 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
     print("=" * 50)
     print("Processing Complete!")
     print(f"Successfully processed: {successful}")
+    print(f"Skipped (already exist): {skipped}")
     print(f"Failed: {failed}")
     print(f"Output saved to: {output_dir}")
     print("=" * 50)
