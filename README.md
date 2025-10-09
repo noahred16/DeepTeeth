@@ -2,6 +2,8 @@
 
 Tooth disease classification using deep learning on the DENTEX dataset.
 
+![Sample images from each class](figures/exploration_samples_per_class.png)
+
 ## Getting started
 Install dependencies and run the data preprocessing scripts:
 
