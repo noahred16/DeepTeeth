@@ -10,8 +10,7 @@ from PIL import Image
 from tqdm import tqdm
 
 # Configuration
-INPUT_DIR = "data"
-OUTPUT_DIR = "data_augmented"
+INPUT_DIRS = ["data_train", "data_validation", "data_test"]
 TARGET_WIDTH = 160
 TARGET_HEIGHT = 256
 PADDING_COLOR = (128, 128, 128)  # Grey color
@@ -64,19 +63,16 @@ def resize_with_padding(image, target_width, target_height, padding_color):
     return new_image
 
 
-def process_images(input_dir, output_dir, target_width, target_height, padding_color):
+def process_images(input_dir, target_width, target_height, padding_color):
     """
-    Process all images in input directory and save to output directory.
+    Process all images in input directory in place.
 
     Args:
         input_dir: Path to input directory
-        output_dir: Path to output directory
         target_width: Target width in pixels
         target_height: Target height in pixels
         padding_color: RGB tuple for padding color
     """
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
 
     # Get list of all image files
     input_path = Path(input_dir)
@@ -85,11 +81,9 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
         f for f in input_path.iterdir() if f.is_file() and f.suffix in image_extensions
     ]
 
-    print(f"Found {len(image_files)} images to process")
+    print(f"Found {len(image_files)} images to process in {input_dir}")
     print(f"Target dimensions: {target_width}x{target_height}")
     print(f"Padding color: RGB{padding_color}")
-    print(f"Input directory: {input_dir}")
-    print(f"Output directory: {output_dir}")
     print()
 
     # Process each image
@@ -97,16 +91,15 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
     failed = 0
     skipped = 0
 
-    for img_file in tqdm(image_files, desc="Processing images"):
+    for img_file in tqdm(image_files, desc=f"Processing {input_dir}"):
         try:
-            # Check if output file already exists
-            output_path = Path(output_dir) / img_file.name
-            if output_path.exists():
-                skipped += 1
-                continue
-
             # Open image
             img = Image.open(img_file)
+
+            # Check if image already has target dimensions
+            if img.size == (target_width, target_height):
+                skipped += 1
+                continue
 
             # Convert to RGB if necessary (handles RGBA, grayscale, etc.)
             if img.mode != "RGB":
@@ -117,8 +110,8 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
                 img, target_width, target_height, padding_color
             )
 
-            # Save to output directory with same filename
-            processed_img.save(output_path, "PNG")
+            # Save in place, overwriting the original file
+            processed_img.save(img_file, "PNG")
 
             successful += 1
 
@@ -129,13 +122,44 @@ def process_images(input_dir, output_dir, target_width, target_height, padding_c
     # Print summary
     print()
     print("=" * 50)
-    print("Processing Complete!")
+    print(f"Processing Complete for {input_dir}!")
     print(f"Successfully processed: {successful}")
-    print(f"Skipped (already exist): {skipped}")
+    print(f"Skipped (already correct size): {skipped}")
     print(f"Failed: {failed}")
-    print(f"Output saved to: {output_dir}")
     print("=" * 50)
+
+    return successful, skipped, failed
 
 
 if __name__ == "__main__":
-    process_images(INPUT_DIR, OUTPUT_DIR, TARGET_WIDTH, TARGET_HEIGHT, PADDING_COLOR)
+    print("Starting image augmentation process...")
+    print(f"Processing {len(INPUT_DIRS)} directories")
+    print()
+
+    total_successful = 0
+    total_skipped = 0
+    total_failed = 0
+
+    for input_dir in INPUT_DIRS:
+        if not os.path.exists(input_dir):
+            print(f"Warning: Directory {input_dir} does not exist. Skipping...")
+            print()
+            continue
+
+        successful, skipped, failed = process_images(
+            input_dir, TARGET_WIDTH, TARGET_HEIGHT, PADDING_COLOR
+        )
+        total_successful += successful
+        total_skipped += skipped
+        total_failed += failed
+        print()
+
+    # Print overall summary
+    print("\n" + "=" * 50)
+    print("OVERALL SUMMARY")
+    print("=" * 50)
+    print(f"Total directories processed: {len(INPUT_DIRS)}")
+    print(f"Total images successfully processed: {total_successful}")
+    print(f"Total images skipped: {total_skipped}")
+    print(f"Total images failed: {total_failed}")
+    print("=" * 50)

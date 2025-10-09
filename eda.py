@@ -94,7 +94,8 @@ for autotext in autotexts:
 
 # Create legend with counts and percentages
 legend_labels = [
-    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+    f"{label}: {count:,} ({count/total*100:.1f}%)"
+    for label, count in zip(labels, sizes)
 ]
 
 ax1.legend(
@@ -140,7 +141,8 @@ for autotext in autotexts:
     autotext.set_weight("bold")
 # Create legend with counts and percentages
 legend_labels = [
-    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+    f"{label}: {count:,} ({count/total*100:.1f}%)"
+    for label, count in zip(labels, sizes)
 ]
 ax1.legend(
     wedges,
@@ -193,7 +195,8 @@ for autotext in autotexts:
     autotext.set_weight("bold")
 # Create legend with counts and percentages (use commas in numbers)
 legend_labels = [
-    f"{label}: {count:,} ({count/total*100:.1f}%)" for label, count in zip(labels, sizes)
+    f"{label}: {count:,} ({count/total*100:.1f}%)"
+    for label, count in zip(labels, sizes)
 ]
 ax1.legend(
     wedges,

@@ -1,5 +1,37 @@
 # DeepTeeth
 
+Tooth disease classification using deep learning on the DENTEX dataset.
+
+## Getting started
+Install dependencies and run the data preprocessing scripts:
+
+```
+pip install -r requirements.txt
+python split_data.py 
+python augment_images.py 
+python balance_training_data.py 
+```
+
+This should result in a 70/15/15 train/validation/test split into the `data_train`, `data_validation`, and `data_test` directories.  
+
+A version of the training set that been balanced by oversampling the minority classes is labeled `data_balanced_train`. The class distribution in the balanced training set is shown below:
+![Balanced Training Set Class Distribution](figures/balanced_training_super_class_distribution.png)
+
+The super classes were created from the following mapping:
+```python
+SUPER_CLASSES = {
+    "Caries": ["Caries", "CariesTest"],
+    "DeepCaries": ["DeepCaries", "Curettage"],
+    "Impacted": ["Impacted"],
+    "Lesion": ["PeriapicalLesion", "Lesion"],
+    "RootCanal": ["RootCanal"],
+    "Healthy": ["Intact"],
+}
+EXCLUDED_CLASSES = ["Extraction", "Fracture"]
+```
+
+## Dataset
+
 The DENTEX dataset has 3 types of training data:
 - quadrant only (693 images)
 - quadrant + enumeration (634 images)
