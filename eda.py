@@ -215,3 +215,117 @@ plt.savefig(
     bbox_inches="tight",
 )
 ############ end super classes pie chart
+
+
+############ balanced train distribution pie chart
+# Read the balanced training data to get actual class distribution
+balanced_train_dir = "./data_balanced_train/"
+balanced_train_classes = {}
+
+for filename in os.listdir(balanced_train_dir):
+    if not filename.endswith(".png"):
+        continue
+    parts = filename.split("_")
+    class_name = parts[1]
+    balanced_train_classes[class_name] = balanced_train_classes.get(class_name, 0) + 1
+
+# Map to super classes for balanced training data
+balanced_super_class_counts = {}
+for super_class, sub_classes in super_classes.items():
+    count = sum(balanced_train_classes.get(sub_class, 0) for sub_class in sub_classes)
+    balanced_super_class_counts[super_class] = count
+
+labels = list(balanced_super_class_counts.keys())
+sizes = list(balanced_super_class_counts.values())
+total = sum(sizes)
+fig1, ax1 = plt.subplots(figsize=(10, 7))
+wedges, texts, autotexts = ax1.pie(
+    sizes,
+    labels=labels,
+    autopct="%1.1f%%",
+    startangle=180,
+    pctdistance=0.85,
+    labeldistance=1.1,
+)
+for autotext in autotexts:
+    autotext.set_color("white")
+    autotext.set_fontsize(10)
+    autotext.set_weight("bold")
+legend_labels = [
+    f"{label}: {count:,} ({count/total*100:.1f}%)"
+    for label, count in zip(labels, sizes)
+]
+ax1.legend(
+    wedges,
+    legend_labels,
+    title="Super Classes",
+    loc="center left",
+    bbox_to_anchor=(1, 0, 0.5, 1),
+    fontsize=10,
+)
+ax1.axis("equal")
+plt.title("Balanced Training Set - Super Class Distribution", fontsize=14, pad=20)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(figure_dir, "balanced_training_super_class_distribution.png"),
+    dpi=300,
+    bbox_inches="tight",
+)
+############ end balanced train distribution pie chart
+
+
+############ test distribution pie chart
+# Read the test data to get class distribution
+test_dir = "./data_test/"
+test_classes = {}
+
+for filename in os.listdir(test_dir):
+    if not filename.endswith(".png"):
+        continue
+    parts = filename.split("_")
+    class_name = parts[1]
+    test_classes[class_name] = test_classes.get(class_name, 0) + 1
+
+# Map to super classes for test data
+test_super_class_counts = {}
+for super_class, sub_classes in super_classes.items():
+    count = sum(test_classes.get(sub_class, 0) for sub_class in sub_classes)
+    test_super_class_counts[super_class] = count
+
+labels = list(test_super_class_counts.keys())
+sizes = list(test_super_class_counts.values())
+total = sum(sizes)
+fig1, ax1 = plt.subplots(figsize=(10, 7))
+wedges, texts, autotexts = ax1.pie(
+    sizes,
+    labels=labels,
+    autopct="%1.1f%%",
+    startangle=180,
+    pctdistance=0.85,
+    labeldistance=1.1,
+)
+for autotext in autotexts:
+    autotext.set_color("white")
+    autotext.set_fontsize(10)
+    autotext.set_weight("bold")
+legend_labels = [
+    f"{label}: {count:,} ({count/total*100:.1f}%)"
+    for label, count in zip(labels, sizes)
+]
+ax1.legend(
+    wedges,
+    legend_labels,
+    title="Super Classes",
+    loc="center left",
+    bbox_to_anchor=(1, 0, 0.5, 1),
+    fontsize=10,
+)
+ax1.axis("equal")
+plt.title("Test Set - Super Class Distribution", fontsize=14, pad=20)
+plt.tight_layout()
+plt.savefig(
+    os.path.join(figure_dir, "test_super_class_distribution.png"),
+    dpi=300,
+    bbox_inches="tight",
+)
+############ end test distribution pie chart

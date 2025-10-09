@@ -12,10 +12,22 @@ python augment_images.py
 python balance_training_data.py 
 ```
 
+File structure after running the above scripts:
+```
+data (5311)
+data_balanced_train (12704 - oversampled)
+data_train (3686 - 70%)
+data_validation (791 - 15%)
+data_test (794 - 15%)
+```
+
 This should result in a 70/15/15 train/validation/test split into the `data_train`, `data_validation`, and `data_test` directories.  
 
 A version of the training set that been balanced by oversampling the minority classes is labeled `data_balanced_train`. The class distribution in the balanced training set is shown below:
 ![Balanced Training Set Class Distribution](figures/balanced_training_super_class_distribution.png)
+
+The test set class distribution is shown below:
+![Test Set Class Distribution](figures/test_super_class_distribution.png)
 
 The super classes were created from the following mapping:
 ```python
@@ -99,7 +111,7 @@ Configuration:
 - Confusion Matrix: `metrics/simple_cnn_confusion_matrix.png`
 
 ## EDA - Exploratory Data Analysis
-The `eda.py` script does some basic EDA and generates a pie chart of the class distribution in the training set.
+The `eda.py` script does some basic EDA and generates a pie chart of the class distribution in the training set. In our anaylsis the smallest two classes (Fracture and Extraction) were excluded due to their very low representation in the dataset. 
 ![Pie chart of class distribution in training set](figures/class_distribution.png)
 ![Core 4 Class Distribution](figures/core4_class_distribution.png)
 ```
