@@ -1,0 +1,55 @@
+============================================================
+Simple CNN - Tooth Disease Classification Results
+============================================================
+
+Device: cpu
+Image size: 160x256
+Batch size: 32
+Epochs: 5
+Learning rate: 0.001
+Classes: ['Caries', 'DeepCaries', 'Healthy', 'Impacted', 'Lesion', 'RootCanal']
+
+Model parameters: 1,316,262
+Trainable parameters: 1,316,262
+
+Training time: 724.6s (12.1m)
+
+============================================================
+Training History
+============================================================
+Epoch 1:
+  Train Loss: 1.2542, Train Acc: 0.4976
+  Val Loss: 0.9176, Val Acc: 0.6789
+Epoch 2:
+  Train Loss: 0.9156, Train Acc: 0.6400
+  Val Loss: 0.9197, Val Acc: 0.6688
+Epoch 3:
+  Train Loss: 0.7631, Train Acc: 0.7004
+  Val Loss: 0.9833, Val Acc: 0.6498
+Epoch 4:
+  Train Loss: 0.6506, Train Acc: 0.7402
+  Val Loss: 1.0456, Val Acc: 0.6561
+Epoch 5:
+  Train Loss: 0.5483, Train Acc: 0.7812
+  Val Loss: 1.0793, Val Acc: 0.6877
+
+============================================================
+Test Set Results
+============================================================
+Test Loss: 1.1683
+Test Accuracy: 0.6889 (68.89%)
+
+              precision    recall  f1-score   support
+
+      Caries     0.6917    0.9298    0.7933       456
+  DeepCaries     0.4545    0.0758    0.1299       132
+     Healthy     0.3333    0.1429    0.2000        14
+    Impacted     0.8045    0.8231    0.8137       130
+      Lesion     0.3750    0.0811    0.1333        37
+   RootCanal     0.0833    0.0400    0.0541        25
+
+    accuracy                         0.6889       794
+   macro avg     0.4571    0.3488    0.3540       794
+weighted avg     0.6305    0.6889    0.6218       794
+
+============================================================

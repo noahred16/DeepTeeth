@@ -71,6 +71,33 @@ The test set which is stored under the `DENTEX/disease` directory uses 9 labels 
     - Extraction
     - Fracture
 
+## Simple CNN Baseline
+
+A lightweight CNN implementation for quick experimentation and baseline performance testing.
+
+### Architecture
+- 2 convolutional layers (16 → 32 channels)
+- 3 max pooling layers
+- 2 fully connected layers (64 hidden units)
+- ~1.3M parameters
+
+### Training
+```bash
+python simple_cnn.py
+```
+
+Configuration:
+- Input: 160x256 RGB images
+- Batch size: 32
+- Epochs: 5
+- Optimizer: Adam (lr=0.001)
+- Device: CUDA if available, otherwise CPU
+
+### Output
+- Model: `models/simple_cnn_best.pth` (best validation accuracy)
+- Metrics: `metrics/simple_cnn_results.txt` (training history, test results)
+- Confusion Matrix: `metrics/simple_cnn_confusion_matrix.png`
+
 ## EDA - Exploratory Data Analysis
 The `eda.py` script does some basic EDA and generates a pie chart of the class distribution in the training set.
 ![Pie chart of class distribution in training set](figures/class_distribution.png)
