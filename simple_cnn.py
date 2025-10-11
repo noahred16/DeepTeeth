@@ -25,8 +25,10 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.metrics import classification_report, accuracy_score
 import seaborn as sns
+
+from model_visualizer import ModelVisualizer
 
 # Configuration
 TRAIN_DIR = "data_balanced_train"
@@ -34,12 +36,14 @@ VAL_DIR = "data_validation"
 TEST_DIR = "data_test"
 MODEL_DIR = "models"
 METRICS_DIR = "metrics"
+RUNS_DIR = os.path.join(METRICS_DIR, "runs")
 IMG_HEIGHT = 256
 IMG_WIDTH = 160
 BATCH_SIZE = 32
 NUM_EPOCHS = 5
 LEARNING_RATE = 0.001
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MODEL_NAME = "SimpleCNN"
 
 # Superclass definitions
 SUPER_CLASSES = {
@@ -211,7 +215,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch_num):
     return epoch_loss, epoch_acc
 
 
-def evaluate(model, dataloader, criterion, device, desc="Eval"):
+def evaluate(model, dataloader, criterion, device, visualizer, desc="Eval"):
     """Evaluate model on validation/test set."""
     from tqdm import tqdm
 
@@ -236,6 +240,9 @@ def evaluate(model, dataloader, criterion, device, desc="Eval"):
 
             # Update progress bar
             progress_bar.set_postfix(loss=f"{loss.item():.4f}")
+            visualizer.embeddings.append(outputs.detach().cpu())
+            visualizer.labels.append(labels.cpu())
+            visualizer.all_labels.append(labels.cpu())
 
     avg_loss = running_loss / len(all_labels)
     accuracy = accuracy_score(all_labels, all_predictions)
@@ -243,32 +250,11 @@ def evaluate(model, dataloader, criterion, device, desc="Eval"):
     return avg_loss, accuracy, all_labels, all_predictions
 
 
-def plot_confusion_matrix(y_true, y_pred, class_names, save_path):
-    """Generate and save confusion matrix plot."""
-    cm = confusion_matrix(y_true, y_pred)
-
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(
-        cm,
-        annot=True,
-        fmt="d",
-        cmap="Blues",
-        xticklabels=class_names,
-        yticklabels=class_names,
-    )
-    plt.title("Confusion Matrix - Simple CNN")
-    plt.ylabel("True Label")
-    plt.xlabel("Predicted Label")
-    plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches="tight")
-    plt.close()
-    print(f"Confusion matrix saved to {save_path}")
-
-
 def main():
     # Create output directories
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(METRICS_DIR, exist_ok=True)
+    os.makedirs(RUNS_DIR)
 
     print("=" * 60)
     print("Simple CNN for Tooth Disease Classification")
@@ -320,6 +306,10 @@ def main():
     model = SimpleCNN(num_classes=len(CLASS_NAMES)).to(DEVICE)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    ## To run tensor board, run this command: tensorboard --logdir=metrics/runs/dentex_SimpleCNN
+    ## Then open http://localhost:6006/
+    visualizer = ModelVisualizer(log_dir=os.path.join(RUNS_DIR, f"dentex_{MODEL_NAME}"), use_tsne=True)
+    visualizer.register_hook(model)
 
     # Print model summary
     total_params = sum(p.numel() for p in model.parameters())
@@ -340,15 +330,22 @@ def main():
     for epoch in range(NUM_EPOCHS):
         epoch_start = time.time()
 
+        visualizer.embeddings.clear()
+        visualizer.labels.clear()
+
         # Train
         train_loss, train_acc = train_one_epoch(
             model, train_loader, criterion, optimizer, DEVICE, epoch + 1
         )
 
         # Validate
-        val_loss, val_acc, _, _ = evaluate(
-            model, val_loader, criterion, DEVICE, desc=f"Epoch {epoch+1} [Val]"
+        val_loss, val_acc, y_val_true, _ = evaluate(
+            model, val_loader, criterion, DEVICE, visualizer, desc=f"Epoch {epoch+1} [Val]"
         )
+
+        visualizer.log_metrics(epoch, train_loss, val_loss, train_acc, val_acc)
+        visualizer.log_embeddings(epoch)
+
 
         # Record history
         train_history.append((train_loss, train_acc))
@@ -389,6 +386,38 @@ def main():
     print(f"Test Loss: {test_loss:.4f}")
     print(f"Test Accuracy: {test_acc:.4f} ({test_acc*100:.2f}%)")
 
+    # Take one sample image from the dataset
+    sample_img, _ = test_dataset[0]
+    sample_img = sample_img.unsqueeze(0).to(DEVICE)  # add batch dimension
+
+    # Save feature maps of conv1
+    fm_path = os.path.join(METRICS_DIR, "conv1_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "conv1", save_path=fm_path)
+
+    # Save feature maps of conv2
+    fm_path = os.path.join(METRICS_DIR, "conv2_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "conv2", save_path=fm_path)
+
+    # Generate confusion matrix
+    cm_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_confusion_matrix.png")
+    visualizer.plot_confusion_matrix(y_true, y_pred, CLASS_NAMES, cm_path, model_name=MODEL_NAME)
+
+    # Feature space visualization (t-SNE)
+    all_features = torch.cat(visualizer.all_embeddings)
+    all_labels = torch.cat(visualizer.all_labels)
+    fs_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_feature_space.png")
+    visualizer.plot_feature_space(all_features, all_labels, save_path=fs_path, model_name=MODEL_NAME)
+
+    # Loss curves
+    train_losses = [t[0] for t in train_history]
+    val_losses = [v[0] for v in val_history]
+    loss_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_loss_curves.png")
+    visualizer.plot_loss_curves(train_losses, val_losses, save_path=loss_path, model_name=MODEL_NAME)
+
+    # Close writer
+    visualizer.remove_hook()
+    visualizer.close()
+
     # Generate classification report
     print("\nClassification Report:")
     report = classification_report(
@@ -396,12 +425,8 @@ def main():
     )
     print(report)
 
-    # Generate confusion matrix
-    cm_path = os.path.join(METRICS_DIR, "simple_cnn_confusion_matrix.png")
-    plot_confusion_matrix(y_true, y_pred, CLASS_NAMES, cm_path)
-
     # Save results to file
-    results_path = os.path.join(METRICS_DIR, "simple_cnn_results.txt")
+    results_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_results.txt")
     with open(results_path, "w") as f:
         f.write("=" * 60 + "\n")
         f.write("Simple CNN - Tooth Disease Classification Results\n")
