@@ -26,7 +26,7 @@ class ModelVisualizer:
         self.writer = SummaryWriter(log_dir)
         self.use_tsne = use_tsne
         self.embedding_sample = embedding_sample
-        self.embeddings, self.labels, self.all_embeddings, self.all_lables = [], [], [], []
+        self.embeddings, self.labels, self.all_embeddings, self.all_labels = [], [], [], []
         self.hook_handle = None
 
     def register_hook(self, model: nn.Module):
