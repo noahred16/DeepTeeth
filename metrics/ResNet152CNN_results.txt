@@ -1,0 +1,55 @@
+============================================================
+Resnet152 CNN - Tooth Disease Classification Results
+============================================================
+
+Device: cpu
+Image size: 160x256
+Batch size: 32
+Epochs: 5
+Learning rate: 0.001
+Classes: ['Caries', 'DeepCaries', 'Healthy', 'Impacted', 'Lesion', 'RootCanal']
+
+Model parameters: 58,669,894
+Trainable parameters: 526,086
+
+Training time: 3954.5s (65.9m)
+
+============================================================
+Training History
+============================================================
+Epoch 1:
+  Train Loss: 0.9058, Train Acc: 0.6849
+  Val Loss: 0.8158, Val Acc: 0.7198
+Epoch 2:
+  Train Loss: 0.7399, Train Acc: 0.7297
+  Val Loss: 0.7586, Val Acc: 0.7198
+Epoch 3:
+  Train Loss: 0.6574, Train Acc: 0.7563
+  Val Loss: 0.8022, Val Acc: 0.6923
+Epoch 4:
+  Train Loss: 0.6250, Train Acc: 0.7668
+  Val Loss: 0.8079, Val Acc: 0.7143
+Epoch 5:
+  Train Loss: 0.5987, Train Acc: 0.7722
+  Val Loss: 0.7851, Val Acc: 0.7253
+
+============================================================
+Test Set Results
+============================================================
+Test Loss: 2.5704
+Test Accuracy: 0.5750 (57.50%)
+
+              precision    recall  f1-score   support
+
+      Caries     0.5473    0.9531    0.6953       747
+  DeepCaries     0.4189    0.1170    0.1829       265
+     Healthy     0.0000    0.0000    0.0000        91
+    Impacted     0.8315    0.6923    0.7556       221
+      Lesion     1.0000    0.0133    0.0263        75
+   RootCanal     0.0000    0.0000    0.0000       161
+
+    accuracy                         0.5750      1560
+   macro avg     0.4663    0.2960    0.2767      1560
+weighted avg     0.4991    0.5750    0.4723      1560
+
+============================================================

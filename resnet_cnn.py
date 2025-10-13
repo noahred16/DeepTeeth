@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple CNN for tooth disease classification on DENTEX dataset.
-
-Architecture: Very lightweight CNN with 2 conv layers + 2 FC layers
-- Conv1: 3 -> 16 channels
-- Conv2: 16 -> 32 channels
-- FC1: 20480 -> 64
-- FC2: 64 -> 6 classes
+Resnet152 CNN for tooth disease classification on DENTEX dataset.
 
 Input: 160x256 RGB images
 Output: 6 classes (Caries, DeepCaries, Impacted, Lesion, RootCanal, Healthy)
@@ -22,6 +16,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from torchvision import models
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,9 +26,9 @@ import seaborn as sns
 from model_visualizer import ModelVisualizer
 
 # Configuration
-TRAIN_DIR = "data_balanced_train"
-VAL_DIR = "data_validation"
-TEST_DIR = "data_test"
+TRAIN_DIR = "data"
+VAL_DIR = "data"
+TEST_DIR = "data"
 MODEL_DIR = "models"
 METRICS_DIR = "metrics"
 RUNS_DIR = os.path.join(METRICS_DIR, "runs")
@@ -43,7 +38,7 @@ BATCH_SIZE = 32
 NUM_EPOCHS = 5
 LEARNING_RATE = 0.001
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_NAME = "SimpleCNN"
+MODEL_NAME = "ResNet152CNN"
 
 # Superclass definitions
 SUPER_CLASSES = {
@@ -87,7 +82,7 @@ def parse_filename(filename):
 class DentexDataset(Dataset):
     """PyTorch Dataset for DENTEX tooth disease classification."""
 
-    def __init__(self, data_dir, transform=None):
+    def __init__(self, data_dir, source, transform=None):
         """
         Args:
             data_dir: Directory containing the image files
@@ -96,6 +91,7 @@ class DentexDataset(Dataset):
         self.data_dir = data_dir
         self.transform = transform
         self.samples = []
+        self.source = source
 
         # Load all valid samples
         for filename in os.listdir(data_dir):
@@ -106,6 +102,9 @@ class DentexDataset(Dataset):
 
             # Skip excluded classes
             if classname in EXCLUDED_CLASSES:
+                continue
+
+            if self.source not in sourcetype:
                 continue
 
             if superclass and superclass in CLASS_TO_IDX:
@@ -130,51 +129,30 @@ class DentexDataset(Dataset):
         return image, label
 
 
-class SimpleCNN(nn.Module):
-    """Very lightweight CNN for tooth disease classification."""
+class ResNet152(nn.Module):
+    """ResNet152 model with frozen convolutional layers"""
 
-    def __init__(self, num_classes=6):
-        super(SimpleCNN, self).__init__()
+    def __init__(self, num_classes=6, pretrained=True, freeze_conv=True):
+        super(ResNet152, self).__init__()
 
-        # Convolutional layers - reduced to 2 layers with fewer channels
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, padding=1)
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)  # 160x256 -> 80x128
+        self.base_model = models.resnet152(weights=models.ResNet152_Weights.DEFAULT if pretrained else None)
+        if freeze_conv:
+            for param in self.base_model.parameters():
+                param.requires_grad = False
 
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)  # 80x128 -> 40x64
+        num_features = self.base_model.fc.in_features
+        self.base_model.fc = nn.Sequential(
+            nn.Linear(num_features, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.4),
+            nn.Linear(256, num_classes)
+        )
 
-        # More aggressive pooling to reduce spatial dimensions
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)  # 40x64 -> 20x32
-
-        # Calculate flattened size: 32 channels * 20 * 32 = 20480
-        self.fc1 = nn.Linear(32 * 20 * 32, 64)
-        self.dropout = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(64, num_classes)
-
-        self.relu = nn.ReLU()
+        self.base_model.fc.requires_grad = True
 
     def forward(self, x):
-        # Conv block 1
-        x = self.conv1(x)
-        x = self.relu(x)
-        x = self.pool1(x)
+        return self.base_model(x)
 
-        # Conv block 2
-        x = self.conv2(x)
-        x = self.relu(x)
-        x = self.pool2(x)
-
-        # Additional pooling
-        x = self.pool3(x)
-
-        # Flatten and FC layers
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-
-        return x
 
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device, epoch_num):
@@ -261,7 +239,7 @@ def main():
     os.makedirs(RUNS_DIR, exist_ok=True)
 
     print("=" * 60)
-    print("Simple CNN for Tooth Disease Classification")
+    print("Resnet152 CNN for Tooth Disease Classification")
     print("=" * 60)
     print(f"Device: {DEVICE}")
     print(f"Image size: {IMG_WIDTH}x{IMG_HEIGHT}")
@@ -290,9 +268,9 @@ def main():
 
     # Create datasets
     print("\nLoading datasets...")
-    train_dataset = DentexDataset(TRAIN_DIR, transform=train_transform)
-    val_dataset = DentexDataset(VAL_DIR, transform=val_transform)
-    test_dataset = DentexDataset(TEST_DIR, transform=val_transform)
+    train_dataset = DentexDataset(TRAIN_DIR, "train", transform=train_transform)
+    val_dataset = DentexDataset(VAL_DIR, "validation", transform=val_transform)
+    test_dataset = DentexDataset(TEST_DIR, "test", transform=val_transform)
 
     # Create dataloaders
     train_loader = DataLoader(
@@ -307,10 +285,10 @@ def main():
 
     # Initialize model, loss, optimizer
     print("\nInitializing model...")
-    model = SimpleCNN(num_classes=len(CLASS_NAMES)).to(DEVICE)
+    model = ResNet152(num_classes=len(CLASS_NAMES)).to(DEVICE)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    ## To run tensor board, run this command: tensorboard --logdir=metrics/runs/dentex_SimpleCNN
+    ## To run tensor board, run this command: tensorboard --logdir=metrics/runs/dentex_Resnet152CNN
     ## Then open http://localhost:6006/
     visualizer = ModelVisualizer(log_dir=os.path.join(RUNS_DIR, f"dentex_{MODEL_NAME}"), use_tsne=True)
     visualizer.register_hook(model)
@@ -351,7 +329,6 @@ def main():
         visualizer.log_metrics(epoch, train_loss, val_loss, train_acc, val_acc)
         visualizer.log_embeddings(epoch, class_names=CLASS_NAMES)
 
-
         # Record history
         train_history.append((train_loss, train_acc))
         val_history.append((val_loss, val_acc))
@@ -369,9 +346,9 @@ def main():
         # Save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            model_path = os.path.join(MODEL_DIR, "simple_cnn_best.pth")
+            model_path = os.path.join(MODEL_DIR, "resnet152_cnn_best.pth")
             torch.save(model.state_dict(), model_path)
-            print(f"  ✓ Saved best model (val_acc: {val_acc:.4f})")
+            print(f"Saved best model (val_acc: {val_acc:.4f})")
 
     training_time = time.time() - start_time
     print("\n" + "=" * 60)
@@ -380,7 +357,7 @@ def main():
 
     # Load best model for evaluation
     model.load_state_dict(
-        torch.load(os.path.join(MODEL_DIR, "simple_cnn_best.pth"), weights_only=True)
+        torch.load(os.path.join(MODEL_DIR, "resnet152_cnn_best.pth"), weights_only=True)
     )
 
     print("\nCapturing embeddings from test set for TensorBoard visualization...")
@@ -391,9 +368,10 @@ def main():
     # Evaluate on test set
     print("\nEvaluating on test set...")
     test_loss, test_acc, y_true, y_pred = evaluate(
-        model, test_loader, criterion, DEVICE, desc="Testing",
+        model, test_loader, criterion, DEVICE, visualizer, desc="Testing",
         capture_embeddings=True
     )
+
     print(f"Test Loss: {test_loss:.4f}")
     print(f"Test Accuracy: {test_acc:.4f} ({test_acc*100:.2f}%)")
 
@@ -415,19 +393,30 @@ def main():
         visualizer.labels.clear()
     else:
         print(f"[ERROR] No embeddings captured during test evaluation!")
-        print(f"  This means the hook is not working correctly.")
 
     # Take one sample image from the dataset
     sample_img, _ = test_dataset[0]
     sample_img = sample_img.unsqueeze(0).to(DEVICE)  # add batch dimension
 
-    # Save feature maps of conv1
+    # Save feature maps of conv1 (need to add base_model prefix)
     fm_path = os.path.join(METRICS_DIR, "conv1_feature_maps.png")
-    visualizer.visualize_feature_maps(model, sample_img, "conv1", save_path=fm_path)
+    visualizer.visualize_feature_maps(model, sample_img, "base_model.conv1", save_path=fm_path, model_name=MODEL_NAME)
 
-    # Save feature maps of conv2
-    fm_path = os.path.join(METRICS_DIR, "conv2_feature_maps.png")
-    visualizer.visualize_feature_maps(model, sample_img, "conv2", save_path=fm_path)
+    # Save feature maps from first layer of first residual block
+    fm_path = os.path.join(METRICS_DIR, "layer1_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "base_model.layer1.0.conv1", save_path=fm_path, model_name=MODEL_NAME)
+
+    # Save feature maps from first layer of second residual block
+    fm_path = os.path.join(METRICS_DIR, "layer2_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "base_model.layer2.0.conv1", save_path=fm_path, model_name=MODEL_NAME)
+
+    # Save feature maps from first layer of third residual block
+    fm_path = os.path.join(METRICS_DIR, "layer3_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "base_model.layer3.0.conv1", save_path=fm_path, model_name=MODEL_NAME)
+
+    # Save feature maps from first layer of fourth residual block
+    fm_path = os.path.join(METRICS_DIR, "layer4_feature_maps.png")
+    visualizer.visualize_feature_maps(model, sample_img, "base_model.layer4.0.conv1", save_path=fm_path, model_name=MODEL_NAME)
 
     # Generate confusion matrix
     cm_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_confusion_matrix.png")
@@ -460,7 +449,7 @@ def main():
     results_path = os.path.join(METRICS_DIR, f"{MODEL_NAME}_results.txt")
     with open(results_path, "w") as f:
         f.write("=" * 60 + "\n")
-        f.write("Simple CNN - Tooth Disease Classification Results\n")
+        f.write("Resnet152 CNN - Tooth Disease Classification Results\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"Device: {DEVICE}\n")
         f.write(f"Image size: {IMG_WIDTH}x{IMG_HEIGHT}\n")

@@ -28,23 +28,57 @@ class ModelVisualizer:
         self.embedding_sample = embedding_sample
         self.embeddings, self.labels, self.all_embeddings, self.all_labels = [], [], [], []
         self.hook_handle = None
+        self._current_labels = None
+        self._capture_embeddings = False
 
     def register_hook(self, model: nn.Module):
         """
         Register a forward hook on the last layer of the model to capture embeddings.
-
-        :param model: PyTorch model
-        :type model: nn.Module
+        Works for both custom CNNs and pretrained models like ResNet.
         """
         def hook_fn(module, input, output):
+            if not self._capture_embeddings:
+                return
+                
             out_cpu = output.detach().cpu()
             self.embeddings.append(out_cpu)
             self.all_embeddings.append(out_cpu)
+            if self._current_labels is not None:
+                lbls = self._current_labels.cpu()
+                if lbls.shape[0] == out_cpu.shape[0]:
+                    self.labels.append(lbls)
+                    self.all_labels.append(lbls)
+                else:
+                    print(f"[WARN] Label count {lbls.shape[0]} != embedding count {out_cpu.shape[0]} — skipping this batch.")
 
-        last_layer = list(model.children())[-1]
-        if isinstance(last_layer, nn.Sequential):
-            last_layer = list(last_layer.children())[-2]
-        self.hook_handle = last_layer.register_forward_hook(hook_fn)
+        target_layer = None
+
+        if hasattr(model, "base_model"):
+            last_block = model.base_model.fc
+            if isinstance(last_block, nn.Sequential):
+                linear_layers = [m for m in last_block.modules() if isinstance(m, nn.Linear)]
+                if len(linear_layers) >= 2:
+                    target_layer = linear_layers[-2]
+                elif len(linear_layers) >= 1:
+                    target_layer = linear_layers[0]
+                else:
+                    target_layer = last_block
+            else:
+                target_layer = last_block
+
+        else:
+            linear_layers = [m for m in model.modules() if isinstance(m, nn.Linear)]
+            if len(linear_layers) >= 2:
+                target_layer = linear_layers[-2]
+            elif len(linear_layers) == 1:
+                target_layer = linear_layers[-1]
+            else:
+                target_layer = list(model.children())[-1]
+
+        self.hook_handle = target_layer.register_forward_hook(hook_fn)
+        print(f"[INFO] Hook registered on layer: {target_layer.__class__.__name__}")
+        if isinstance(target_layer, nn.Linear):
+            print(f"[INFO] Linear layer output dimension: {target_layer.out_features}")
 
     def remove_hook(self):
         """
@@ -76,18 +110,42 @@ class ModelVisualizer:
         if val_acc is not None:
             self.writer.add_scalar("Accuracy/Validation", val_acc, epoch)
 
-    def log_embeddings(self, epoch):
+    def log_embeddings(self, epoch, class_names=None):
         """
         Log captured embeddings to TensorBoard.
 
         :param epoch: Current epoch
         :type epoch: int
+        :param class_names: Optional list of class names for better visualization
+        :type class_names: list[str], optional
         """
-        if not self.embeddings:
+        if not self.embeddings or not self.labels:
+            print(f"[INFO] No embeddings to log for epoch {epoch}")
             return
+        
         features = torch.cat(self.embeddings)
         labels = torch.cat(self.labels)
-        self.writer.add_embedding(features, metadata=labels, tag=f"Epoch_{epoch}")
+        
+        if features.shape[0] != labels.shape[0]:
+            print(f"[WARN] Skipping embedding log - shape mismatch: {features.shape[0]} features vs {labels.shape[0]} labels")
+            self.embeddings.clear()
+            self.labels.clear()
+            return
+        
+        if class_names is not None:
+            metadata = [class_names[int(label)] for label in labels]
+        else:
+            metadata = labels.tolist()
+        
+        print(f"[INFO] Logging {features.shape[0]} embeddings with dimension {features.shape[1]} for epoch {epoch}")
+        
+        self.writer.add_embedding(
+            features, 
+            metadata=metadata,
+            global_step=epoch, 
+            tag="embeddings"
+        )
+        
         self.embeddings.clear()
         self.labels.clear()
 
@@ -151,7 +209,6 @@ class ModelVisualizer:
         plt.close()
         print(f"Confusion matrix saved to {save_path}")
 
-
     def plot_feature_space(self, features, labels, save_path, model_name="Model"):
         """
         Plot feature embeddings in 2D using PCA or t-SNE.
@@ -206,28 +263,60 @@ class ModelVisualizer:
         :type model_name: str, optional
         """
         activation = {}
+        handle = None
 
         def hook_fn(module, inp, out):
             activation[layer_name] = out.detach().cpu()
 
+        layer_found = False
+        available_layers = []
+        
         for name, layer in model.named_modules():
+            if name:
+                available_layers.append(name)
             if name == layer_name:
                 handle = layer.register_forward_hook(hook_fn)
+                layer_found = True
+                print(f"[INFO] Visualizing feature maps from layer: {name}")
                 break
-        _ = model(input_image)
-        handle.remove()
+        
+        if not layer_found:
+            print(f"[ERROR] Layer '{layer_name}' not found in model.")
+            print(f"[INFO] Available convolutional layers:")
+            for name in available_layers:
+                if 'conv' in name.lower() or 'layer' in name.lower():
+                    print(f"  - {name}")
+            return
+        
+        with torch.no_grad():
+            _ = model(input_image)
+        
+        if handle is not None:
+            handle.remove()
+
+        if layer_name not in activation:
+            print(f"[ERROR] No activation captured for layer '{layer_name}'")
+            return
 
         act = activation[layer_name][0]
         num_maps = min(8, act.shape[0])
 
         fig, axes = plt.subplots(1, num_maps+1, figsize=(15, 4))
-        axes[0].imshow(input_image.cpu().permute(1, 2, 0))
+        
+        img_display = input_image.cpu().squeeze(0).permute(1, 2, 0).numpy()
+        img_display = np.clip(img_display, 0, 1)
+        
+        axes[0].imshow(img_display)
         axes[0].set_title("Input Image")
         axes[0].axis("off")
+        
         for i in range(num_maps):
             axes[i+1].imshow(act[i].numpy(), cmap='viridis')
             axes[i+1].axis('off')
+            axes[i+1].set_title(f'Map {i+1}')
+        
         plt.suptitle(f"Feature Maps from Layer (Model: {model_name}): {layer_name}")
+        plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close()
         print(f"Feature maps saved to {save_path}")
