@@ -391,7 +391,7 @@ def main():
     # Evaluate on test set
     print("\nEvaluating on test set...")
     test_loss, test_acc, y_true, y_pred = evaluate(
-        model, test_loader, criterion, DEVICE, desc="Testing",
+        model, test_loader, criterion, DEVICE, visualizer, desc="Testing",
         capture_embeddings=True
     )
     print(f"Test Loss: {test_loss:.4f}")

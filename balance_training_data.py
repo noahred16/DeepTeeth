@@ -88,7 +88,7 @@ def apply_augmentation(image, flip_horizontal, rotation_angle, brightness_factor
     Args:
         image: PIL Image object
         flip_horizontal: Boolean - whether to flip horizontally
-        rotation_angle: Rotation angle in degrees (0, 90, 180, 270)
+        rotation_angle: Rotation angle in degrees (0, 180)
         brightness_factor: Brightness adjustment factor (0.8, 0.9, 1.1, 1.2)
 
     Returns:
@@ -121,20 +121,22 @@ def generate_augmentation_params():
     - 4 rotations (0°, 90°, 180°, 270°)
     - 4 brightness levels (0.8, 0.9, 1.1, 1.2 = ±20%, ±10%)
 
-    Total: 2 × 4 × 4 = 32 unique augmentations
+    Total: 2 x 4 x 4 = 32 unique augmentations
 
     Returns list of tuples: (flip_horizontal, rotation_angle, brightness_factor, aug_id)
     """
     augmentations = []
     aug_id = 0
 
-    flip_states = [False, True]  # No flip, horizontal flip
-    rotation_angles = [0, 90, 180, 270]
+
+    # Only use 0° and 180° rotations, with both flip states
+    rotation_angles = [0, 180]
+    # Brightness factors: ±10%, ±20%
     brightness_factors = [0.8, 0.9, 1.1, 1.2]
 
-    for flip in flip_states:
-        for rotation in rotation_angles:
-            for brightness in brightness_factors:
+    for rotation in rotation_angles:
+        for brightness in brightness_factors:
+            for flip in [False, True]:
                 augmentations.append((flip, rotation, brightness, aug_id))
                 aug_id += 1
 
